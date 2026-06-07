@@ -14,13 +14,17 @@ usage_and_die () {
     echo "Commands:" >&2
     echo "  birth ... See when the system was installed. (Based on when '/' was created.)" >&2
     echo "  age   ... See system age. (Duration since birth.)" >&2
-    echo "  combined ... See system age in one line. (Duration since birth.)" >&2
+    echo "  combined ... See system age in one line. (Useful for fastfetch.)" >&2
 
     exit 1
 }
 
 log_key_val () {
     echo -e "\033[0;33m$1:\033[0m $2\033[0m"
+}
+
+log_key_val_noclr () {
+    echo -e "\033[0;m$1\033[0m $2\033[0m"
 }
 
 display_mode="$1"
@@ -52,7 +56,7 @@ elif [[ "$display_mode" == "combined" ]]; then
     duration_years="$(( ${duration_days} / 365 ))"
 
     duration_combined="Years: $(( ${duration_days} / 365 ))|Months: $(( ${duration_days} / 365 ))|Days: $(( ${duration_hours} / 24 ))|Hours: $(( ${duration_mins} / 60 ))|Minutes: $(( ${duration_secs} / 60 ))|Seconds: $(( $(get_now_time) - $(get_creation_time) ))"
-    log_key_val "System Age" "$duration_combined"
+    log_key_val_noclr "$duration_combined"
 else
     usage_and_die
 fi
