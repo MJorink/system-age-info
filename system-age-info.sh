@@ -14,7 +14,7 @@ usage_and_die () {
     echo "Commands:" >&2
     echo "  birth ... See when the system was installed. (Based on when '/' was created.)" >&2
     echo "  age   ... See system age. (Duration since birth.)" >&2
-	echo "  counted ... See syste age. (But numbers add up instead of the same value shown in different formats.)" >&2
+	echo "  counted ... See system age. (Add up instead of same value in different formats.)" >&2
     echo "  combined ... See system age in one line. (Useful for fastfetch.)" >&2
 
     exit 1
