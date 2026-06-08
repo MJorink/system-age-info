@@ -39,9 +39,13 @@ log_kv() {
     printf '\033[0;33m%s%s\033[0m %s\n' "$1" "$sep" "$2"
 }
 
+get_birth() {
+	date -d "@$(get_creation_time)" "+%a %b %e %H:%M:%S %Y"
+}
+
 case "${1:-}" in
     birth)
-        date -d "@$(get_creation_time)"
+    	get_birth
         ;;
     age)
         calc_duration "$(( $(get_now_time) - $(get_creation_time) ))"
@@ -56,6 +60,7 @@ case "${1:-}" in
     counted)
         calc_duration "$(( $(get_now_time) - $(get_creation_time) ))"
         echo "System age:"
+        get_birth
         log_kv "Seconds" "$REMAINING_SECS"
         log_kv "Minutes" "$REMAINING_MINS"
         log_kv "Hours"   "$REMAINING_HOURS"
