@@ -1,89 +1,75 @@
 #!/usr/bin/env bash
 
-get_creation_time () {
-    stat -c %W /
-}
+get_creation_time() { stat -c %W /; }
+get_now_time()      { date "+%s"; }
 
-get_now_time () {
-    date "+%s"
-}
+usage_and_die() {
+    cat >&2 <<EOF
+Usage: $(basename "$0") <COMMAND>
 
-usage_and_die () {
-    echo "Usage: $(basename "$0") <COMMAND>" >&2
-    echo " " >&2
-    echo "Commands:" >&2
-    echo "  birth ... See when the system was installed. (Based on when '/' was created.)" >&2
-    echo "  age   ... See system age. (Duration since birth.)" >&2
-	echo "  counted ... See system age. (Add up instead of same value in different formats.)" >&2
-    echo "  combined ... See system age in one line. (Useful for fastfetch.)" >&2
-
+Commands:
+  birth    ... See when the system was installed. (Based on when '/' was created.)
+  age      ... See system age. (Duration since birth.)
+  counted  ... See system age. (Add up instead of same value in different formats.)
+  combined ... See system age in one line. (Useful for fastfetch.)
+EOF
     exit 1
 }
 
-log_key_val () {
-    echo -e "\033[0;33m$1:\033[0m $2\033[0m"
+calc_duration() {
+    local secs="$1"
+    TOTAL_SECS=$secs
+    TOTAL_MINS=$(( secs / 60 ))
+    TOTAL_HOURS=$(( secs / 3600 ))
+    TOTAL_DAYS=$(( secs / 86400 ))
+    TOTAL_MONTHS=$(( TOTAL_DAYS / 30 ))
+    TOTAL_YEARS=$(( TOTAL_DAYS / 365 ))
+
+    REMAINING_SECS=$(( TOTAL_SECS   - TOTAL_MINS   * 60 ))
+    REMAINING_MINS=$(( TOTAL_MINS   - TOTAL_HOURS  * 60 ))
+    REMAINING_HOURS=$(( TOTAL_HOURS - TOTAL_DAYS   * 24 ))
+    REMAINING_DAYS=$(( TOTAL_DAYS   - TOTAL_MONTHS * 30 ))
+    REMAINING_MONTHS=$(( TOTAL_MONTHS - TOTAL_YEARS * 12 ))
 }
 
-log_key_val_counted () {
-	echo -e "\033[0;33m$1\033[0m $2\033[0m"
+log_kv() {
+    # Usage: log_kv "key" "value" ["separator"]
+    # separator defaults to ":"
+    local sep="${3:-:}"
+    printf '\033[0;33m%s%s\033[0m %s\n' "$1" "$sep" "$2"
 }
 
-log_key_val_combined () {
-    echo -e "\033[0;m$1\033[0m $2\033[0m"
-}
-
-display_mode="$1"
-
-if [[ "$display_mode" == "birth" ]]; then
-    date -d "@$(get_creation_time)"
-elif [[ "$display_mode" == "age" ]]; then
-    duration_secs="$(( $(get_now_time) - $(get_creation_time) ))"
-    duration_mins="$(( ${duration_secs} / 60 ))"
-    duration_hours="$(( ${duration_mins} / 60 ))"
-    duration_days="$(( ${duration_hours} / 24 ))"
-    duration_months="$(( ${duration_days} / 30 ))"
-    duration_years="$(( ${duration_days} / 365 ))"
-
-	echo "System age:"
-    log_key_val "In Seconds" "$duration_secs"
-    log_key_val "In Minutes" "$duration_mins"
-    log_key_val "In Hours" "$duration_hours"
-    log_key_val "In Days" "$duration_days"
-    log_key_val "In Months" "$duration_months"
-    log_key_val "In Years" "$duration_years"
-    
-elif [[ "$display_mode" == "combined" ]]; then	
-    duration_secs="$(( $(get_now_time) - $(get_creation_time) ))"
-    duration_mins="$(( ${duration_secs} / 60 ))"
-    duration_hours="$(( ${duration_mins} / 60 ))"
-    duration_days="$(( ${duration_hours} / 24 ))"
-    duration_months="$(( ${duration_days} / 30 ))"
-    duration_years="$(( ${duration_days} / 365 ))"
-    duration_combined="Years: $(( ${duration_days} / 365 ))|Months: $(( ${duration_days} / 365 ))|Days: $(( ${duration_hours} / 24 ))|Hours: $(( ${duration_mins} / 60 ))|Minutes: $(( ${duration_secs} / 60 ))|Seconds: $(( $(get_now_time) - $(get_creation_time) ))"
-
-    log_key_val_combined "$duration_combined"
-elif [[ "$display_mode" == "counted" ]]; then
-
-    total_secs="$(( $(get_now_time) - $(get_creation_time) ))"
-    total_mins="$(( ${total_secs} / 60 ))"
-    total_hours="$(( ${total_mins} / 60 ))"
-    total_days="$(( ${total_hours} / 24 ))"
-    total_months="$(( ${total_days} / 30 ))"
-	total_years="$(( ${total_days} / 365 ))"
-
-	duration_secs="$(( ${total_secs} - ${total_mins} * 60 ))"
-	duration_mins="$(( ${total_mins} - ${total_hours} * 60 ))"
-	duration_hours="$(( ${total_hours} - ${total_days} * 24 ))"
-	duration_days="$(( ${total_days} - ${total_months} * 30 ))"
-	duration_months="$(( ${total_months} - ${total_years} * 12 ))"
-
-	echo "System age:"	
-	log_key_val_counted "Seconds:" "$duration_secs"
-	log_key_val_counted "Minutes:" "$duration_mins"
-	log_key_val_counted "Hours:" "$duration_hours"
-	log_key_val_counted "Days:" "$duration_days"
-	log_key_val_counted "Months" "$duration_months"
-	log_key_val_counted "Years:" "$total_years"
-else
-    usage_and_die
-fi
+case "${1:-}" in
+    birth)
+        date -d "@$(get_creation_time)"
+        ;;
+    age)
+        calc_duration "$(( $(get_now_time) - $(get_creation_time) ))"
+        echo "System age:"
+        log_kv "In Seconds" "$TOTAL_SECS"
+        log_kv "In Minutes" "$TOTAL_MINS"
+        log_kv "In Hours"   "$TOTAL_HOURS"
+        log_kv "In Days"    "$TOTAL_DAYS"
+        log_kv "In Months"  "$TOTAL_MONTHS"
+        log_kv "In Years"   "$TOTAL_YEARS"
+        ;;
+    counted)
+        calc_duration "$(( $(get_now_time) - $(get_creation_time) ))"
+        echo "System age:"
+        log_kv "Seconds" "$REMAINING_SECS"
+        log_kv "Minutes" "$REMAINING_MINS"
+        log_kv "Hours"   "$REMAINING_HOURS"
+        log_kv "Days"    "$REMAINING_DAYS"
+        log_kv "Months"  "$REMAINING_MONTHS"
+        log_kv "Years"   "$TOTAL_YEARS"
+        ;;
+    combined)
+        calc_duration "$(( $(get_now_time) - $(get_creation_time) ))"
+        printf '\033[0mYears: %s|Months: %s|Days: %s|Hours: %s|Minutes: %s|Seconds: %s\033[0m\n' \
+            "$TOTAL_YEARS" "$TOTAL_MONTHS" "$TOTAL_DAYS" \
+            "$TOTAL_HOURS" "$TOTAL_MINS"   "$TOTAL_SECS"
+        ;;
+    *)
+        usage_and_die
+        ;;
+esac
