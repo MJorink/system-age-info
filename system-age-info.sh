@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/sh
 
 get_creation_time() { stat -c %W /; }
 get_now_time()      { date "+%s"; }
