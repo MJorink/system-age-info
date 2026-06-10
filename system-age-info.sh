@@ -1,6 +1,15 @@
-#!/usr/bin/sh
+#!/bin/sh
 
-get_creation_time() { stat -c %W /; }
+get_creation_time() {
+    # GNU
+    if out=$(stat -c "%W" / 2>/dev/null) && [ -n "$out" ] && [ "$out" -ne 0 ] 2>/dev/null; then
+        echo "$out"
+    # BSD
+    elif out=$(stat -f "%m" / 2>/dev/null) && [ -n "$out" ] && [ "$out" -ne 0 ] 2>/dev/null; then
+        echo "$out"
+    fi
+}
+
 get_now_time()      { date "+%s"; }
 
 usage_and_die() {
@@ -40,7 +49,15 @@ log_kv() {
 }
 
 get_birth() {
-	date -d "@$(get_creation_time)" "+%a %b %e %H:%M:%S %Y"
+    local epoch_time
+    epoch_time="$(get_creation_time)"
+
+    # Check if date supports GNU syntax (-d), otherwise use BSD syntax (-r)
+    if date -d "@$epoch_time" "+%Y" >/dev/null 2>&1; then
+        date -d "@$epoch_time" "+%a %b %e %H:%M:%S %Y"
+    else
+        date -r "$epoch_time" "+%a %b %e %H:%M:%S %Y"
+    fi
 }
 
 case "${1:-}" in
