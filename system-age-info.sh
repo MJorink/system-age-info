@@ -10,7 +10,7 @@ get_creation_time() {
     fi
 }
 
-get_now_time()      { date "+%s"; }
+get_now_time() { date "+%s"; }
 
 usage_and_die() {
     cat >&2 <<EOF
