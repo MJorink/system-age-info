@@ -1,95 +1,71 @@
 #!/bin/sh
 
-get_creation_time() {
-    # GNU
-    if out=$(stat -c "%W" / 2>/dev/null) && [ -n "$out" ] && [ "$out" -ne 0 ] 2>/dev/null; then
-        echo "$out"
-    # BSD
-    elif out=$(stat -f "%m" / 2>/dev/null) && [ -n "$out" ] && [ "$out" -ne 0 ] 2>/dev/null; then
-        echo "$out"
+get_time() {
+    # $1=path $2=1 to allow mtime fallback
+    out=$(stat -c "%W" "$1" 2>/dev/null) || out=$(stat -f "%B" "$1" 2>/dev/null)
+    if [ -z "$out" ] || [ "$out" -eq 0 ] 2>/dev/null; then
+        [ "$2" = 1 ] && out=$(stat -c "%Y" "$1" 2>/dev/null || stat -f "%m" "$1" 2>/dev/null)
     fi
+    echo "$out"
 }
-
-get_now_time() { date "+%s"; }
 
 usage_and_die() {
     cat >&2 <<EOF
 Usage: $(basename "$0") <COMMAND>
 
 Commands:
-  birth    ... See when the system was installed. (Based on when '/' was created.)
-  age      ... See system age. (Duration since birth.)
-  counted  ... See system age. (Add up instead of same value in different formats.)
-  combined ... See system age in one line. (Useful for fastfetch.)
+  birth       ... See when the system was installed. (Based on when '/' was created.)
+  age         ... See system age. (Duration since birth.)
+  counted     ... See system age. (Add up instead of same value in different formats.)
+  file <path> ... See system age based on the age of a given file. (Same output as 'counted'.)
 EOF
     exit 1
 }
 
-calc_duration() {
-    local secs="$1"
-    TOTAL_SECS=$secs
-    TOTAL_MINS=$(( secs / 60 ))
-    TOTAL_HOURS=$(( secs / 3600 ))
-    TOTAL_DAYS=$(( secs / 86400 ))
-    TOTAL_MONTHS=$(( TOTAL_DAYS / 30 ))
-    TOTAL_YEARS=$(( TOTAL_DAYS / 365 ))
-
-    REMAINING_SECS=$(( TOTAL_SECS   - TOTAL_MINS   * 60 ))
-    REMAINING_MINS=$(( TOTAL_MINS   - TOTAL_HOURS  * 60 ))
-    REMAINING_HOURS=$(( TOTAL_HOURS - TOTAL_DAYS   * 24 ))
-    REMAINING_DAYS=$(( TOTAL_DAYS   - TOTAL_MONTHS * 30 ))
-    REMAINING_MONTHS=$(( TOTAL_MONTHS - TOTAL_YEARS * 12 ))
-}
-
-log_kv() {
-    # Usage: log_kv "key" "value" ["separator"]
-    # separator defaults to ":"
-    local sep="${3:-:}"
-    printf '\033[0;33m%s%s\033[0m %s\n' "$1" "$sep" "$2"
-}
+log_kv() { printf '\033[0;33m%s%s\033[0m %s\n' "$1" "${3:-:}" "$2"; }
 
 get_birth() {
-    local epoch_time
-    epoch_time="$(get_creation_time)"
+    date -d "@$1" "+%a %b %e %H:%M:%S %Y" 2>/dev/null || date -r "$1" "+%a %b %e %H:%M:%S %Y"
+}
 
-    # Check if date supports GNU syntax (-d), otherwise use BSD syntax (-r)
-    if date -d "@$epoch_time" "+%Y" >/dev/null 2>&1; then
-        date -d "@$epoch_time" "+%a %b %e %H:%M:%S %Y"
-    else
-        date -r "$epoch_time" "+%a %b %e %H:%M:%S %Y"
-    fi
+print_counted() {
+    secs=$1 mins=$(( secs/60 )) hours=$(( secs/3600 )) days=$(( secs/86400 ))
+    months=$(( days/30 )) years=$(( days/365 ))
+    log_kv "Seconds" "$(( secs - mins*60 ))"
+    log_kv "Minutes" "$(( mins - hours*60 ))"
+    log_kv "Hours"   "$(( hours - days*24 ))"
+    log_kv "Days"    "$(( days - months*30 ))"
+    log_kv "Months"  "$(( months - years*12 ))"
+    log_kv "Years"   "$years"
 }
 
 case "${1:-}" in
     birth)
-    	get_birth
+        get_birth "$(get_time / 0)"
         ;;
     age)
-        calc_duration "$(( $(get_now_time) - $(get_creation_time) ))"
+        secs=$(( $(date +%s) - $(get_time / 0) ))
         echo "System age:"
-        log_kv "In Seconds" "$TOTAL_SECS"
-        log_kv "In Minutes" "$TOTAL_MINS"
-        log_kv "In Hours"   "$TOTAL_HOURS"
-        log_kv "In Days"    "$TOTAL_DAYS"
-        log_kv "In Months"  "$TOTAL_MONTHS"
-        log_kv "In Years"   "$TOTAL_YEARS"
+        log_kv "In Seconds" "$secs"
+        log_kv "In Minutes" "$(( secs/60 ))"
+        log_kv "In Hours"   "$(( secs/3600 ))"
+        log_kv "In Days"    "$(( secs/86400 ))"
+        log_kv "In Months"  "$(( secs/86400/30 ))"
+        log_kv "In Years"   "$(( secs/86400/365 ))"
         ;;
     counted)
-        calc_duration "$(( $(get_now_time) - $(get_creation_time) ))"
+        t=$(get_time / 0)
         echo "System age:"
-        get_birth
-        log_kv "Seconds" "$REMAINING_SECS"
-        log_kv "Minutes" "$REMAINING_MINS"
-        log_kv "Hours"   "$REMAINING_HOURS"
-        log_kv "Days"    "$REMAINING_DAYS"
-        log_kv "Months"  "$REMAINING_MONTHS"
-        log_kv "Years"   "$TOTAL_YEARS"
+        get_birth "$t"
+        print_counted $(( $(date +%s) - t ))
         ;;
-    combined)
-        calc_duration "$(( $(get_now_time) - $(get_creation_time) ))"
-        printf '\033[0mYears: %s|Months: %s|Days: %s|Hours: %s|Minutes: %s|Seconds: %s\033[0m\n' \
-            "$TOTAL_YEARS" "$TOTAL_MONTHS" "$TOTAL_DAYS" \
-            "$TOTAL_HOURS" "$TOTAL_MINS"   "$TOTAL_SECS"
+    file)
+        file_path="${2:-}"
+        [ -n "$file_path" ] && [ -e "$file_path" ] || { echo "Error: please provide a valid file path." >&2; usage_and_die; }
+        t=$(get_time "$file_path" 1)
+        echo "System age (based on '$file_path'):"
+        get_birth "$t"
+        print_counted $(( $(date +%s) - t ))
         ;;
     *)
         usage_and_die
