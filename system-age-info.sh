@@ -22,7 +22,7 @@ EOF
     exit 1
 }
 
-log_kv() { printf '\033[0;33m%s%s\033[0m %s\n' "$1" "${3:-:}" "$2"; }
+log_kv() { printf '\033[0;32m%s%s\033[0m %s\n' "$1" "${3:-:}" "$2"; }
 
 get_birth() {
     date -d "@$1" "+%a %b %e %H:%M:%S %Y" 2>/dev/null || date -r "$1" "+%a %b %e %H:%M:%S %Y"
@@ -63,7 +63,7 @@ case "${1:-}" in
         file_path="${2:-}"
         [ -n "$file_path" ] && [ -e "$file_path" ] || { echo "Error: please provide a valid file path." >&2; usage_and_die; }
         t=$(get_time "$file_path" 1)
-        echo "System age (based on '$file_path'):"
+        echo "System age:"
         get_birth "$t"
         print_counted $(( $(date +%s) - t ))
         ;;
